@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat.fun</title>
+    <style>
+        body { font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
+        #sidebar { width: 250px; background: #eee; border-right: 1px solid #ccc; }
+        #chat-area { flex-grow: 1; display: flex; flex-direction: column; }
+        .message { padding: 10px; border-bottom: 1px solid #ddd; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div id="profile-btn">Profil</div>
+    <div id="user-list"><h3>Kullanıcılar</h3></div>
+</div>
+
+<div id="chat-area">
+    <div id="messages"></div>
+    <input type="text" id="msg-input" placeholder="Mesaj yaz...">
+    <button onclick="sendMessage()">Gönder</button>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+    // BURAYA KENDİ FIREBASE AYARLARINI YAPIŞTIR
+    const firebaseConfig = {
+        apiKey: "...",
+        authDomain: "...",
+        databaseURL: "...",
+        projectId: "...",
+        storageBucket: "...",
+        messagingSenderId: "...",
+        appId: "..."
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Mesaj gönderme
+    window.sendMessage = () => {
+        const text = document.getElementById("msg-input").value;
+        const username = localStorage.getItem("username") || "Misafir";
+        push(ref(db, 'globalChat'), { username, text });
+        document.getElementById("msg-input").value = "";
+    };
+
+    // Mesajları dinleme
+    onValue(ref(db, 'globalChat'), (snapshot) => {
+        const data = snapshot.val();
+        document.getElementById("messages").innerHTML = "";
+        for(let id in data) {
+            const div = document.createElement("div");
+            div.className = "message";
+            div.innerText = data[id].username + ": " + data[id].text;
+            // DM için çift tıklama mantığı
+            div.ondblclick = () => { alert("DM açılıyor: " + data[id].username); };
+            document.getElementById("messages").appendChild(div);
+        }
+    });
+
+    // Kullanıcı adı sorma
+    if(!localStorage.getItem("username")) {
+        const name = prompt("Adını gir:");
+        localStorage.setItem("username", name);
+    }
+</script>
+</body>
+</html>
+
