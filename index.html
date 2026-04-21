@@ -1,73 +1,71 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chat.fun</title>
+    <title>UKZCM Portal</title>
     <style>
-        body { font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
-        #sidebar { width: 250px; background: #eee; border-right: 1px solid #ccc; }
-        #chat-area { flex-grow: 1; display: flex; flex-direction: column; }
-        .message { padding: 10px; border-bottom: 1px solid #ddd; cursor: pointer; }
+        body { background: #121212; color: #fff; font-family: Arial; }
+        .nav { padding: 10px; background: #222; display: flex; gap: 20px; }
+        .content { padding: 20px; }
     </style>
 </head>
 <body>
 
-<div id="sidebar">
-    <div id="profile-btn">Profil</div>
-    <div id="user-list"><h3>Kullanıcılar</h3></div>
+<div class="nav">
+    <span onclick="show('global')">Global Chat</span>
+    <span onclick="show('profile')">Profil</span>
 </div>
 
-<div id="chat-area">
-    <div id="messages"></div>
-    <input type="text" id="msg-input" placeholder="Mesaj yaz...">
-    <button onclick="sendMessage()">Gönder</button>
+<div id="global" class="content">
+    <div id="chat-box" style="height: 300px; overflow-y: scroll; border: 1px solid #333;"></div>
+    <input type="text" id="msg-input"><button onclick="send()">Gönder</button>
+</div>
+
+<div id="profile" class="content" style="display:none;">
+    <input type="text" id="name-input" placeholder="Yeni ismini gir">
+    <button onclick="saveName()">Kaydet</button>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+    import { getDatabase, ref, push, onValue, set } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
 
-    // BURAYA KENDİ FIREBASE AYARLARINI YAPIŞTIR
-    const firebaseConfig = {
-        apiKey: "...",
-        authDomain: "...",
-        databaseURL: "...",
-        projectId: "...",
-        storageBucket: "...",
-        messagingSenderId: "...",
-        appId: "..."
+    const firebaseConfig = { databaseURL: "https://ukzcmchatproje-default-rtdb.firebaseio.com/" };
+    const db = getDatabase(initializeApp(firebaseConfig));
+
+    // Sabit bir ID oluştur (Tarayıcıyı kapatsan bile ismin değişmez)
+    let uid = localStorage.getItem("uid") || Math.random().toString(36).substr(2, 9);
+    localStorage.setItem("uid", uid);
+
+    window.saveName = () => {
+        const newName = document.getElementById("name-input").value;
+        set(ref(db, 'users/' + uid), { name: newName });
+        alert("İsim güncellendi!");
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    // Mesaj gönderme
-    window.sendMessage = () => {
+    window.send = () => {
         const text = document.getElementById("msg-input").value;
-        const username = localStorage.getItem("username") || "Misafir";
-        push(ref(db, 'globalChat'), { username, text });
+        push(ref(db, 'chat'), { uid: uid, text: text });
         document.getElementById("msg-input").value = "";
     };
 
-    // Mesajları dinleme
-    onValue(ref(db, 'globalChat'), (snapshot) => {
-        const data = snapshot.val();
-        document.getElementById("messages").innerHTML = "";
-        for(let id in data) {
-            const div = document.createElement("div");
-            div.className = "message";
-            div.innerText = data[id].username + ": " + data[id].text;
-            // DM için çift tıklama mantığı
-            div.ondblclick = () => { alert("DM açılıyor: " + data[id].username); };
-            document.getElementById("messages").appendChild(div);
-        }
+    // Mesajları çek ve isimleri eşleştir
+    onValue(ref(db, 'chat'), (s) => {
+        const messages = s.val();
+        onValue(ref(db, 'users'), (u) => {
+            const users = u.val();
+            document.getElementById("chat-box").innerHTML = "";
+            for(let key in messages) {
+                const m = messages[key];
+                const senderName = users && users[m.uid] ? users[m.uid].name : "Misafir";
+                document.getElementById("chat-box").innerHTML += `<div><b>${senderName}:</b> ${m.text}</div>`;
+            }
+        });
     });
 
-    // Kullanıcı adı sorma
-    if(!localStorage.getItem("username")) {
-        const name = prompt("Adını gir:");
-        localStorage.setItem("username", name);
-    }
+    window.show = (id) => {
+        document.getElementById('global').style.display = id == 'global' ? 'block' : 'none';
+        document.getElementById('profile').style.display = id == 'profile' ? 'block' : 'none';
+    };
 </script>
 </body>
 </html>
-
